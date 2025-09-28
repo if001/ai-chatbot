@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import type { UIMessage } from 'ai';
+import type { UIMessage } from "ai";
 import {
   useRef,
   useEffect,
@@ -11,9 +11,11 @@ import {
   type ChangeEvent,
   memo,
   useMemo,
-} from 'react';
-import { toast } from 'sonner';
-import { useLocalStorage, useWindowSize } from 'usehooks-ts';
+} from "react";
+import { toast } from "sonner";
+import { useLocalStorage, useWindowSize } from "usehooks-ts";
+import useSWR from "swr";
+import { fetcher } from "@/lib/utils";
 
 import {
   ArrowUpIcon,
@@ -21,10 +23,11 @@ import {
   CpuIcon,
   StopIcon,
   ChevronDownIcon,
-} from './icons';
-import { PreviewAttachment } from './preview-attachment';
-import { Button } from './ui/button';
-import { SuggestedActions } from './suggested-actions';
+  TextIcon,
+} from "./icons";
+import { PreviewAttachment } from "./preview-attachment";
+import { Button } from "./ui/button";
+import { SuggestedActions } from "./suggested-actions";
 import {
   PromptInput,
   PromptInputTextarea,
@@ -33,20 +36,23 @@ import {
   PromptInputSubmit,
   PromptInputModelSelect,
   PromptInputModelSelectContent,
-} from './elements/prompt-input';
-import { SelectItem } from '@/components/ui/select';
-import * as SelectPrimitive from '@radix-ui/react-select';
-import equal from 'fast-deep-equal';
-import type { UseChatHelpers } from '@ai-sdk/react';
-import type { VisibilityType } from './visibility-selector';
-import type { Attachment, ChatMessage } from '@/lib/types';
-import type { AppUsage } from '@/lib/usage';
-import { chatModels } from '@/lib/ai/models';
-import { saveChatModelAsCookie } from '@/app/(chat)/actions';
-import { startTransition } from 'react';
-import { Context } from './elements/context';
-import { myProvider } from '@/lib/ai/providers';
+} from "./elements/prompt-input";
+import { SelectItem } from "@/components/ui/select";
+import * as SelectPrimitive from "@radix-ui/react-select";
 
+import equal from "fast-deep-equal";
+import type { UseChatHelpers } from "@ai-sdk/react";
+import type { VisibilityType } from "./visibility-selector";
+import type { Attachment, ChatMessage, MultiResponse } from "@/lib/types";
+import type { AppUsage } from "@/lib/usage";
+import { chatModels } from "@/lib/ai/models";
+import { saveChatModelAsCookie } from "@/app/(chat)/actions";
+import { startTransition } from "react";
+import { Context } from "./elements/context";
+import { myProvider } from "@/lib/ai/providers";
+import { Namespace } from "@/lib/db/schema";
+
+const enableAttatchment = false;
 function PureMultimodalInput({
   chatId,
   input,
@@ -63,21 +69,25 @@ function PureMultimodalInput({
   selectedModelId,
   onModelChange,
   usage,
+  selectedNamespaceId,
+  onNamespaceIdChange,
 }: {
   chatId: string;
   input: string;
   setInput: Dispatch<SetStateAction<string>>;
-  status: UseChatHelpers<ChatMessage>['status'];
+  status: UseChatHelpers<ChatMessage>["status"];
   stop: () => void;
   attachments: Array<Attachment>;
   setAttachments: Dispatch<SetStateAction<Array<Attachment>>>;
   messages: Array<UIMessage>;
-  setMessages: UseChatHelpers<ChatMessage>['setMessages'];
-  sendMessage: UseChatHelpers<ChatMessage>['sendMessage'];
+  setMessages: UseChatHelpers<ChatMessage>["setMessages"];
+  sendMessage: UseChatHelpers<ChatMessage>["sendMessage"];
   className?: string;
   selectedVisibilityType: VisibilityType;
   selectedModelId: string;
   onModelChange?: (modelId: string) => void;
+  selectedNamespaceId?: string;
+  onNamespaceIdChange?: (namespaceId: string) => void;
   usage?: AppUsage;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -91,26 +101,26 @@ function PureMultimodalInput({
 
   const adjustHeight = () => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = '44px';
+      textareaRef.current.style.height = "44px";
     }
   };
 
   const resetHeight = () => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = '44px';
+      textareaRef.current.style.height = "44px";
     }
   };
 
   const [localStorageInput, setLocalStorageInput] = useLocalStorage(
-    'input',
-    '',
+    "input",
+    "",
   );
 
   useEffect(() => {
     if (textareaRef.current) {
       const domValue = textareaRef.current.value;
       // Prefer DOM value over localStorage to handle hydration
-      const finalValue = domValue || localStorageInput || '';
+      const finalValue = domValue || localStorageInput || "";
       setInput(finalValue);
       adjustHeight();
     }
@@ -130,28 +140,28 @@ function PureMultimodalInput({
   const [uploadQueue, setUploadQueue] = useState<Array<string>>([]);
 
   const submitForm = useCallback(() => {
-    window.history.replaceState({}, '', `/chat/${chatId}`);
+    window.history.replaceState({}, "", `/chat/${chatId}`);
 
     sendMessage({
-      role: 'user',
+      role: "user",
       parts: [
         ...attachments.map((attachment) => ({
-          type: 'file' as const,
+          type: "file" as const,
           url: attachment.url,
           name: attachment.name,
           mediaType: attachment.contentType,
         })),
         {
-          type: 'text',
+          type: "text",
           text: input,
         },
       ],
     });
 
     setAttachments([]);
-    setLocalStorageInput('');
+    setLocalStorageInput("");
     resetHeight();
-    setInput('');
+    setInput("");
 
     if (width && width > 768) {
       textareaRef.current?.focus();
@@ -169,11 +179,11 @@ function PureMultimodalInput({
 
   const uploadFile = async (file: File) => {
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append("file", file);
 
     try {
-      const response = await fetch('/api/files/upload', {
-        method: 'POST',
+      const response = await fetch("/api/files/upload", {
+        method: "POST",
         body: formData,
       });
 
@@ -190,7 +200,7 @@ function PureMultimodalInput({
       const { error } = await response.json();
       toast.error(error);
     } catch (error) {
-      toast.error('Failed to upload file, please try again!');
+      toast.error("Failed to upload file, please try again!");
     }
   };
 
@@ -223,7 +233,7 @@ function PureMultimodalInput({
           ...successfullyUploadedAttachments,
         ]);
       } catch (error) {
-        console.error('Error uploading files!', error);
+        console.error("Error uploading files!", error);
       } finally {
         setUploadQueue([]);
       }
@@ -233,7 +243,6 @@ function PureMultimodalInput({
 
   return (
     <div className="flex relative flex-col gap-4 w-full">
-
       {messages.length === 0 &&
         attachments.length === 0 &&
         uploadQueue.length === 0 && (
@@ -257,8 +266,8 @@ function PureMultimodalInput({
         className="p-3 rounded-xl border transition-all duration-200 border-border bg-background shadow-xs focus-within:border-border hover:border-muted-foreground/50"
         onSubmit={(event) => {
           event.preventDefault();
-          if (status !== 'ready') {
-            toast.error('Please wait for the model to finish its response!');
+          if (status !== "ready") {
+            toast.error("Please wait for the model to finish its response!");
           } else {
             submitForm();
           }
@@ -278,7 +287,7 @@ function PureMultimodalInput({
                     currentAttachments.filter((a) => a.url !== attachment.url),
                   );
                   if (fileInputRef.current) {
-                    fileInputRef.current.value = '';
+                    fileInputRef.current.value = "";
                   }
                 }}
               />
@@ -288,9 +297,9 @@ function PureMultimodalInput({
               <PreviewAttachment
                 key={filename}
                 attachment={{
-                  url: '',
+                  url: "",
                   name: filename,
-                  contentType: '',
+                  contentType: "",
                 }}
                 isUploading={true}
               />
@@ -310,20 +319,29 @@ function PureMultimodalInput({
             className="grow resize-none border-0! p-2 border-none! bg-transparent text-sm outline-none ring-0 [-ms-overflow-style:none] [scrollbar-width:none] placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 [&::-webkit-scrollbar]:hidden"
             rows={1}
             autoFocus
-          />{' '}
+          />{" "}
           <Context {...contextProps} />
         </div>
         <PromptInputToolbar className="!border-top-0 border-t-0! p-0 shadow-none dark:border-0 dark:border-transparent!">
           <PromptInputTools className="gap-0 sm:gap-0.5">
-            <AttachmentsButton
-              fileInputRef={fileInputRef}
-              status={status}
+            {enableAttatchment && (
+              <AttachmentsButton
+                fileInputRef={fileInputRef}
+                status={status}
+                selectedModelId={selectedModelId}
+              />
+            )}
+            <ModelSelectorCompact
               selectedModelId={selectedModelId}
+              onModelChange={onModelChange}
             />
-            <ModelSelectorCompact selectedModelId={selectedModelId} onModelChange={onModelChange} />
+            <NamespaceSelectorCompact
+              selectedNamespaceId={selectedNamespaceId}
+              onNamespaceIdChange={onNamespaceIdChange}
+            />
           </PromptInputTools>
 
-          {status === 'submitted' ? (
+          {status === "submitted" ? (
             <StopButton stop={stop} setMessages={setMessages} />
           ) : (
             <PromptInputSubmit
@@ -360,10 +378,10 @@ function PureAttachmentsButton({
   selectedModelId,
 }: {
   fileInputRef: React.MutableRefObject<HTMLInputElement | null>;
-  status: UseChatHelpers<ChatMessage>['status'];
+  status: UseChatHelpers<ChatMessage>["status"];
   selectedModelId: string;
 }) {
-  const isReasoningModel = selectedModelId === 'chat-model-reasoning';
+  const isReasoningModel = selectedModelId === "chat-model-reasoning";
 
   return (
     <Button
@@ -373,7 +391,7 @@ function PureAttachmentsButton({
         event.preventDefault();
         fileInputRef.current?.click();
       }}
-      disabled={status !== 'ready' || isReasoningModel}
+      disabled={status !== "ready" || isReasoningModel}
       variant="ghost"
     >
       <PaperclipIcon size={14} style={{ width: 14, height: 14 }} />
@@ -448,12 +466,88 @@ function PureModelSelectorCompact({
 
 const ModelSelectorCompact = memo(PureModelSelectorCompact);
 
+function PureNamespaceSelectorCompact({
+  selectedNamespaceId,
+  onNamespaceIdChange,
+}: {
+  selectedNamespaceId?: string;
+  onNamespaceIdChange?: (namespaceId: string) => void;
+}) {
+  const [optimisticNamespaceId, setOptimisticNamespaceId] =
+    useState(selectedNamespaceId);
+
+  const { data } = useSWR<MultiResponse<Namespace>>(
+    "/api/namespace?page_index=1&per_page=9999",
+    fetcher,
+  );
+  const namespaces: Namespace[] = data && data?.objects ? data.objects : [];
+
+  useEffect(() => {
+    setOptimisticNamespaceId(selectedNamespaceId);
+  }, [selectedNamespaceId]);
+
+  const selectedNamespace = namespaces.find(
+    (v) => v.id === optimisticNamespaceId,
+  );
+
+  return (
+    <PromptInputModelSelect
+      value={selectedNamespace?.name}
+      onValueChange={(name) => {
+        const namespace = namespaces.find((m) => m.name === name);
+        if (namespace) {
+          setOptimisticNamespaceId(namespace.id);
+          onNamespaceIdChange?.(namespace.id);
+          startTransition(() => {
+            //saveChatModelAsCookie(namespace.id);
+          });
+        }
+      }}
+    >
+      <SelectPrimitive.Trigger
+        type="button"
+        className="flex gap-2 items-center px-2 h-8 rounded-lg border-0 shadow-none transition-colors bg-background text-foreground hover:bg-accent focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+      >
+        <TextIcon size={16} />
+        <span className="hidden text-xs font-medium sm:block">
+          {selectedNamespace ? selectedNamespace.name : "select namespace"}
+        </span>
+        <ChevronDownIcon size={16} />
+      </SelectPrimitive.Trigger>
+      <PromptInputModelSelectContent className="min-w-[260px] p-0">
+        <div className="flex flex-col gap-px">
+          {namespaces.map((namespace) => (
+            <SelectItem
+              key={namespace.id}
+              value={namespace.name}
+              className="px-3 py-2 text-xs"
+            >
+              <div className="flex flex-col flex-1 gap-1 min-w-0">
+                <div className="text-xs font-medium truncate">
+                  {namespace.name}
+                </div>
+                {
+                  // <div className="text-[10px] text-muted-foreground truncate leading-tight">
+                  //   {model.description}
+                  // </div>
+                }
+              </div>
+            </SelectItem>
+          ))}
+        </div>
+      </PromptInputModelSelectContent>
+    </PromptInputModelSelect>
+  );
+}
+
+const NamespaceSelectorCompact = memo(PureNamespaceSelectorCompact);
+
 function PureStopButton({
   stop,
   setMessages,
 }: {
   stop: () => void;
-  setMessages: UseChatHelpers<ChatMessage>['setMessages'];
+  setMessages: UseChatHelpers<ChatMessage>["setMessages"];
 }) {
   return (
     <Button

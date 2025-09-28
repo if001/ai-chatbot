@@ -1,4 +1,4 @@
-export const DEFAULT_CHAT_MODEL: string = 'chat-model';
+export const DEFAULT_CHAT_MODEL: string = "chat-model";
 
 export interface ChatModel {
   id: string;
@@ -8,14 +8,14 @@ export interface ChatModel {
 
 export const chatModels: Array<ChatModel> = [
   {
-    id: 'chat-model',
-    name: 'Grok Vision',
-    description: 'Advanced multimodal model with vision and text capabilities',
+    id: "chat-model",
+    name: "qwen3 0.6b",
+    description: "Advanced multimodal model with vision and text capabilities",
   },
   {
-    id: 'chat-model-reasoning',
-    name: 'Grok Reasoning',
+    id: "chat-model-reasoning",
+    name: "qwen3 0.6b-reasoning",
     description:
-      'Uses advanced chain-of-thought reasoning for complex problems',
+      "Uses advanced chain-of-thought reasoning for complex problems",
   },
 ];

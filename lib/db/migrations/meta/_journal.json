@@ -57,6 +57,27 @@
       "when": 1757362773211,
       "tag": "0007_flowery_ben_parker",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1758552257048,
+      "tag": "0008_thin_richard_fisk",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1758811044731,
+      "tag": "0009_lonely_tombstone",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1758971852242,
+      "tag": "0010_modern_wilson_fisk",
+      "breakpoints": true
     }
   ]
 }

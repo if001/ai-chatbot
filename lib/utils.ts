@@ -3,13 +3,16 @@ import type {
   CoreToolMessage,
   UIMessage,
   UIMessagePart,
-} from 'ai';
-import { type ClassValue, clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-import type { DBMessage, Document } from '@/lib/db/schema';
-import { ChatSDKError, type ErrorCode } from './errors';
-import type { ChatMessage, ChatTools, CustomUIDataTypes } from './types';
-import { formatISO } from 'date-fns';
+} from "ai";
+import { type ClassValue, clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
+import type { DBMessage, Document } from "@/lib/db/schema";
+import { ChatSDKError, type ErrorCode } from "./errors";
+import type { ChatMessage, ChatTools, CustomUIDataTypes } from "./types";
+import { formatISO } from "date-fns";
+import { customAlphabet } from "nanoid";
+
+export const nanoid = customAlphabet("abcdefghijklmnopqrstuvwxyz0123456789");
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -23,6 +26,24 @@ export const fetcher = async (url: string) => {
     throw new ChatSDKError(code as ErrorCode, cause);
   }
 
+  return response.json();
+};
+
+type RequestArg<T> = {
+  arg: { body: T };
+};
+export const fetcherPost = async <T, U>(
+  url: string,
+  { arg }: RequestArg<T>,
+): Promise<U> => {
+  const response = await fetch(url, {
+    method: "POST",
+    body: JSON.stringify(arg.body),
+  });
+  if (!response.ok) {
+    const { code, cause } = await response.json();
+    throw new ChatSDKError(code as ErrorCode, cause);
+  }
   return response.json();
 };
 
@@ -40,8 +61,8 @@ export async function fetchWithErrorHandlers(
 
     return response;
   } catch (error: unknown) {
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      throw new ChatSDKError('offline:chat');
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      throw new ChatSDKError("offline:chat");
     }
 
     throw error;
@@ -49,16 +70,16 @@ export async function fetchWithErrorHandlers(
 }
 
 export function getLocalStorage(key: string) {
-  if (typeof window !== 'undefined') {
-    return JSON.parse(localStorage.getItem(key) || '[]');
+  if (typeof window !== "undefined") {
+    return JSON.parse(localStorage.getItem(key) || "[]");
   }
   return [];
 }
 
 export function generateUUID(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
 }
@@ -67,7 +88,7 @@ type ResponseMessageWithoutId = CoreToolMessage | CoreAssistantMessage;
 type ResponseMessage = ResponseMessageWithoutId & { id: string };
 
 export function getMostRecentUserMessage(messages: Array<UIMessage>) {
-  const userMessages = messages.filter((message) => message.role === 'user');
+  const userMessages = messages.filter((message) => message.role === "user");
   return userMessages.at(-1);
 }
 
@@ -94,13 +115,13 @@ export function getTrailingMessageId({
 }
 
 export function sanitizeText(text: string) {
-  return text.replace('<has_function_call>', '');
+  return text.replace("<has_function_call>", "");
 }
 
 export function convertToUIMessages(messages: DBMessage[]): ChatMessage[] {
   return messages.map((message) => ({
     id: message.id,
-    role: message.role as 'user' | 'assistant' | 'system',
+    role: message.role as "user" | "assistant" | "system",
     parts: message.parts as UIMessagePart<CustomUIDataTypes, ChatTools>[],
     metadata: {
       createdAt: formatISO(message.createdAt),
@@ -110,7 +131,7 @@ export function convertToUIMessages(messages: DBMessage[]): ChatMessage[] {
 
 export function getTextFromMessage(message: ChatMessage): string {
   return message.parts
-    .filter((part) => part.type === 'text')
+    .filter((part) => part.type === "text")
     .map((part) => part.text)
-    .join('');
+    .join("");
 }
