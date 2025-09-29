@@ -72,28 +72,18 @@ export function NamespaceHistory({ user }: { user: User | undefined }) {
     : false;
 
   const handleDelete = async () => {
-    // const deletePromise = fetch(`/api/chat?id=${deleteId}`, {
-    //   method: "DELETE",
-    // });
-    // toast.promise(deletePromise, {
-    //   loading: "Deleting chat...",
-    //   success: () => {
-    //     mutate((chatHistories) => {
-    //       if (chatHistories) {
-    //         return chatHistories.map((chatHistory) => ({
-    //           ...chatHistory,
-    //           chats: chatHistory.chats.filter((chat) => chat.id !== deleteId),
-    //         }));
-    //       }
-    //     });
-    //     return "Chat deleted successfully";
-    //   },
-    //   error: "Failed to delete chat",
-    // });
-    // setShowDeleteDialog(false);
-    // if (deleteId === id) {
-    //   router.push("/");
-    // }
+    const deletePromise = fetch(`/api/namespace/${deleteId}`, {
+      method: "DELETE",
+    });
+    toast.promise(deletePromise, {
+      loading: "Deleting namespace...",
+      success: () => {
+        return "Namespace deleted successfully";
+      },
+      error: "Failed to delete chat",
+    });
+    setShowDeleteDialog(false);
+    router.push("/namespace");
   };
 
   if (!user) {

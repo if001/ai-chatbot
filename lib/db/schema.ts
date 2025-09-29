@@ -209,6 +209,7 @@ export const resources = pgTable(
   {
     id: uuid("id").primaryKey().notNull().defaultRandom(),
     name: text("name").notNull(),
+    summary: text("summary"),
     namespaceId: uuid("namespaceId").notNull(),
     content: text("content").notNull(),
     createdAt: timestamp("created_at")
@@ -242,6 +243,24 @@ export const resourceRequest = z.object({
   namespaceId: z.string(),
 });
 export type ResourceRequest = z.infer<typeof resourceRequest>;
+
+// export const fileTable = pgTable("file", {
+//   id: uuid("id").primaryKey().notNull().defaultRandom(),
+//   filename: text("filename").notNull(),
+//   createdAt: timestamp("createdAt")
+//     .notNull()
+//     .default(sql`now()`),
+//   updatedAt: timestamp("updated_at")
+//     .notNull()
+//     .default(sql`now()`),
+// });
+// export const insertFileSchema = createSelectSchema(file).omit({
+//   id: true,
+//   createdAt: true,
+//   updatedAt: true,
+// });
+// export type InsertFileSchema = z.infer<typeof insertFileSchema>;
+// export type SelectFileSchema = InferSelectModel<typeof file>;
 
 export const namespace = pgTable("namespace", {
   id: uuid("id").primaryKey().notNull().defaultRandom(),

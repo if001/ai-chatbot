@@ -46,7 +46,10 @@ import type { VisibilityType } from "./visibility-selector";
 import type { Attachment, ChatMessage, MultiResponse } from "@/lib/types";
 import type { AppUsage } from "@/lib/usage";
 import { chatModels } from "@/lib/ai/models";
-import { saveChatModelAsCookie } from "@/app/(chat)/actions";
+import {
+  saveChatModelAsCookie,
+  saveNamespaceAsCookie,
+} from "@/app/(chat)/actions";
 import { startTransition } from "react";
 import { Context } from "./elements/context";
 import { myProvider } from "@/lib/ai/providers";
@@ -335,10 +338,12 @@ function PureMultimodalInput({
               selectedModelId={selectedModelId}
               onModelChange={onModelChange}
             />
-            <NamespaceSelectorCompact
-              selectedNamespaceId={selectedNamespaceId}
-              onNamespaceIdChange={onNamespaceIdChange}
-            />
+            {
+              // <NamespaceSelectorCompact
+              //   selectedNamespaceId={selectedNamespaceId}
+              //   onNamespaceIdChange={onNamespaceIdChange}
+              // />
+            }
           </PromptInputTools>
 
           {status === "submitted" ? (
@@ -467,9 +472,11 @@ function PureModelSelectorCompact({
 const ModelSelectorCompact = memo(PureModelSelectorCompact);
 
 function PureNamespaceSelectorCompact({
+  chatId,
   selectedNamespaceId,
   onNamespaceIdChange,
 }: {
+  chatId: string;
   selectedNamespaceId?: string;
   onNamespaceIdChange?: (namespaceId: string) => void;
 }) {
@@ -499,7 +506,7 @@ function PureNamespaceSelectorCompact({
           setOptimisticNamespaceId(namespace.id);
           onNamespaceIdChange?.(namespace.id);
           startTransition(() => {
-            //saveChatModelAsCookie(namespace.id);
+            saveNamespaceAsCookie(chatId, namespace.id);
           });
         }
       }}

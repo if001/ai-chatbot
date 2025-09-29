@@ -62,7 +62,6 @@ export async function POST(request: NextRequest) {
     const namespaceWithResources =
       await insertNamespaceWithResourceAndEmbeddings(
         session?.user.id,
-        parsed.data.name,
         parsed.data.fileIds,
       );
 

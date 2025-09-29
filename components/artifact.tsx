@@ -253,7 +253,7 @@ function PureArtifact({
       }
     }
   }, [artifact.documentId, artifactDefinition, setMetadata]);
-  console.log("artifact", artifact);
+
   return (
     <AnimatePresence>
       <h1>artifact</h1>

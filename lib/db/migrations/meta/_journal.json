@@ -78,6 +78,13 @@
       "when": 1758971852242,
       "tag": "0010_modern_wilson_fisk",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1759138426160,
+      "tag": "0011_jittery_wolfsbane",
+      "breakpoints": true
     }
   ]
 }

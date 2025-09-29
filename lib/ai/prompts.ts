@@ -68,7 +68,7 @@ export const systemPrompt = ({
 
 export const regularPromptForRag =
   "You are a helpful assistant. Check your knowledge base before answering any questions." +
-  "Only respond to questions using information from tool[findDocumentByRAG] calls." +
+  "Be sure to use tool:[findDocumentByRAG] and use the result of tool to answer." +
   "if no relevant information is found in the tool calls, respond, Sorry, I don't know.";
 
 export const systemPromptV2 = ({
@@ -77,9 +77,9 @@ export const systemPromptV2 = ({
   selectedChatModel: string;
 }) => {
   if (selectedChatModel === "chat-model-reasoning") {
-    return `${regularPrompt}`;
+    return `${regularPromptForRag}`;
   } else {
-    return `${regularPrompt}`;
+    return `${regularPromptForRag}`;
   }
 };
 

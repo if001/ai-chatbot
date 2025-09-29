@@ -11,17 +11,23 @@ import { useSidebar } from "./ui/sidebar";
 import { memo } from "react";
 import { type VisibilityType, VisibilitySelector } from "./visibility-selector";
 import type { Session } from "next-auth";
+import { Namespace } from "@/lib/db/schema";
+import { NamespaceSelector } from "./namespace-selector";
 
 function PureChatHeader({
   chatId,
   selectedVisibilityType,
   isReadonly,
   session,
+  initNamespaceId,
+  setSelectedNamespaceIdAction,
 }: {
   chatId: string;
   selectedVisibilityType: VisibilityType;
   isReadonly: boolean;
   session: Session;
+  initNamespaceId?: string;
+  setSelectedNamespaceIdAction: (v: string) => void;
 }) {
   const router = useRouter();
   const { open } = useSidebar();
@@ -53,7 +59,12 @@ function PureChatHeader({
           className="order-1 md:order-2"
         />
       )}
-
+      <NamespaceSelector
+        chatId={chatId}
+        initNamespaceId={initNamespaceId}
+        setSelectedNamespaceIdAction={setSelectedNamespaceIdAction}
+        className="order-1 md:order-2"
+      />
       <Button
         variant="ghost"
         type="button"

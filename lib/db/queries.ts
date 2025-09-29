@@ -37,6 +37,9 @@ import {
   namespace,
   type InsertResourceSchema,
   type NamespaceWithResources,
+  InsertFileSchema,
+  fileTable,
+  Namespace,
 } from "./schema";
 import { generateEmbeddings, type EmbeddingContent } from "@/lib/ai/embedding";
 import type { ArtifactKind } from "@/components/artifact";
@@ -45,6 +48,7 @@ import { generateHashedPassword } from "./utils";
 import type { VisibilityType } from "@/components/visibility-selector";
 import { ChatSDKError } from "../errors";
 import type { AppUsage } from "../usage";
+import { generateSummary, generateTitleForDoc } from "@/app/(chat)/actions";
 
 // Optionally, if not using email/pass login, you can
 // use the Drizzle adapter for Auth.js / NextAuth
@@ -708,25 +712,97 @@ export async function findEmbeddingsByNamespaceId(namespaceId: string) {
   }
 }
 
+export async function insertResorcesAndEmbeddings(
+  userId: string,
+  namespaceId: string,
+  fileIDs: string[],
+): Promise<Resources[]> {
+  try {
+    const result = await db.transaction(async (tx) => {
+      const files = fileIDs.map((fileID) => {
+        const filename = fileID.split("_")[1];
+        const uploadDir = path.join(process.cwd(), uploadFilePath);
+        const filePath = path.join(uploadDir, fileID);
+        const data = fs.readFileSync(filePath, "utf-8");
+        return { name: fileID, content: data, filename: filename };
+      });
+
+      const summariesP = files.map((file) => {
+        return generateSummary({ input: file.content });
+      });
+      const summaries = await Promise.all(summariesP);
+
+      const resourcesData: InsertResourceSchema[] = files.map((file, i) => {
+        return {
+          name: file.filename,
+          summary: summaries[i],
+          content: file.content,
+          namespaceId: namespaceId,
+        };
+      });
+
+      const newResources: Resources[] = await tx
+        .insert(resources)
+        .values(resourcesData)
+        .returning();
+      const insertEmbeddings = newResources.map(async (r: Resources) => {
+        const embeddingContents = await generateEmbeddings(r.content);
+        return tx.insert(embeddings).values(
+          embeddingContents.map((embedding) => ({
+            resourceId: r.id,
+            ...embedding,
+          })),
+        );
+      });
+      const newEmbeddings = await Promise.all(insertEmbeddings);
+      return newResources;
+    });
+    return result;
+  } catch (error) {
+    console.log("err: ", error);
+    throw new ChatSDKError("bad_request:database", "Failed: insertNamespace");
+  }
+}
+
 const uploadFilePath = "public/files";
 export async function insertNamespaceWithResourceAndEmbeddings(
   userId: string,
-  name: string,
   fileIDs: string[],
 ): Promise<NamespaceWithResources> {
   try {
     const result = await db.transaction(async (tx) => {
-      const [newNamespace] = await tx
-        .insert(namespace)
-        .values({ name, userId })
-        .returning();
-
-      const resourcesData: InsertResourceSchema[] = fileIDs.map((fileID) => {
+      const files = fileIDs.map((fileID) => {
+        const filename = fileID.split("_")[1];
         const uploadDir = path.join(process.cwd(), uploadFilePath);
         const filePath = path.join(uploadDir, fileID);
+
         const data = fs.readFileSync(filePath, "utf-8");
-        return { name: fileID, content: data, namespaceId: newNamespace.id };
+        return { name: fileID, content: data, filename: filename };
       });
+
+      const summariesP = files.map((file) => {
+        return generateSummary({ input: file.content });
+      });
+      const summaries = await Promise.all(summariesP);
+
+      const namespaceTitle = await generateTitleForDoc({
+        input: summaries.join("\n\n"),
+      });
+
+      const [newNamespace] = await tx
+        .insert(namespace)
+        .values({ name: namespaceTitle, userId })
+        .returning();
+
+      const resourcesData: InsertResourceSchema[] = files.map((file, i) => {
+        return {
+          name: file.filename,
+          summary: summaries[i],
+          content: file.content,
+          namespaceId: newNamespace.id,
+        };
+      });
+
       const newResources: Resources[] = await tx
         .insert(resources)
         .values(resourcesData)
@@ -750,6 +826,22 @@ export async function insertNamespaceWithResourceAndEmbeddings(
   }
 }
 
+export async function getNamespaceByID(id: string): Promise<Namespace> {
+  try {
+    const [result] = await db
+      .select()
+      .from(namespace)
+      .where(eq(namespace.id, id))
+      .execute();
+    return result;
+  } catch (error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to get namespace by id",
+    );
+  }
+}
+
 export async function getNamespaceByUserID(
   id: string,
   userId: string,
@@ -763,6 +855,7 @@ export async function getNamespaceByUserID(
         createdAt: namespace.createdAt,
         updatedAt: namespace.updatedAt,
         resource_id: resources.id,
+        resource_summary: resources.summary,
         resource_name: resources.name,
         resource_content: resources.content,
         resource_createdAt: resources.createdAt,
@@ -791,6 +884,7 @@ export async function getNamespaceByUserID(
           id: row.resource_id!,
           name: row.resource_name!,
           namespaceId: row.id,
+          summary: row.resource_summary,
           content: row.resource_content!,
           createdAt: row.resource_createdAt!,
           updatedAt: row.resource_updateAt!,
@@ -835,3 +929,24 @@ export async function getNamespacesByUserID(
     );
   }
 }
+
+export async function deleteNamespaceById({ id }: { id: string }) {
+  try {
+    await db.delete(namespace).where(eq(namespace.id, id));
+    await db.delete(resources).where(eq(resources.namespaceId, id));
+  } catch (error) {
+    console.log("error", error);
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to delete namespace by id",
+    );
+  }
+}
+
+// export async function insertFile(values: InsertFileSchema[]) {
+//   try {
+//     return await db.insert(fileTable).values(values).returning();
+//   } catch (error) {
+//     throw new ChatSDKError("bad_request:database", "Failed to insert file");
+//   }
+// }

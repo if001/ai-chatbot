@@ -3,7 +3,7 @@ import { z } from "zod";
 import { auth } from "@/app/(auth)/auth";
 import fs from "fs";
 import path from "path";
-import { nanoid } from "@/lib/utils";
+import { generateUUID, nanoid } from "@/lib/utils";
 import { FileResult } from "@/lib/types";
 
 // const FileSchema = z.object({
@@ -71,28 +71,35 @@ export async function POST(request: NextRequest) {
     const upload = successFiles.map(async (file) => {
       try {
         const filename = (file as File).name;
+        const uuid = generateUUID();
+        const saveFilename = `${uuid}_${filename}`;
         const fileBuffer = await file.arrayBuffer();
         const buffer = Buffer.from(fileBuffer);
         const uploadDir = path.join(process.cwd(), uploadFilePath);
-        const filePath = path.join(uploadDir, filename);
+        const filePath = path.join(uploadDir, saveFilename);
         fs.writeFileSync(filePath, buffer);
         return {
           id: nanoid(),
           file: file as File,
+          saveFilename: saveFilename,
           message: "ok",
         } as FileResult;
       } catch (e) {
         console.log("upload faild", e);
-        return { file: file as File, message: "upload faild" } as FileResult;
+        return {
+          file: file as File,
+          message: "upload faild",
+        } as FileResult;
       }
     });
-
     const results = await Promise.all(upload);
+
     const okFiles = results
       .filter((v) => v.message === "ok")
       .map((v) => ({
         id: v.id,
         name: v.file.name,
+        saveFilename: v.saveFilename,
         message: v.message,
       }));
     const ngFiles = fileResults
@@ -101,6 +108,7 @@ export async function POST(request: NextRequest) {
         name: v.file.name,
         message: v.message,
       }));
+
     return NextResponse.json(
       { okFiles: okFiles, ngFiles: ngFiles },
       { status: 200 },

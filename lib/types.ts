@@ -83,7 +83,6 @@ export const pagedParam = z.object({
 export type PagedParam = z.infer<typeof pagedParam>;
 
 export const namespaceRequest = z.object({
-  name: z.string(),
   fileIds: z.array(z.string()),
 });
 
@@ -97,12 +96,14 @@ export type NamespaceRequest = z.infer<typeof namespaceRequest>;
 export type FileResult = {
   id?: string;
   file: File;
+  saveFilename?: string;
   message: string;
 };
 
 const fileObject = z.object({
   id: z.string().nullable(),
   name: z.string(),
+  saveFilename: z.string().nullable().optional(),
   message: z.string(),
 });
 export const fileResponse = z.object({

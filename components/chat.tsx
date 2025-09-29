@@ -38,6 +38,7 @@ export function Chat({
   id,
   initialMessages,
   initialChatModel,
+  initialNamespaceId,
   initialVisibilityType,
   isReadonly,
   session,
@@ -47,6 +48,7 @@ export function Chat({
   id: string;
   initialMessages: ChatMessage[];
   initialChatModel: string;
+  initialNamespaceId?: string;
   initialVisibilityType: VisibilityType;
   isReadonly: boolean;
   session: Session;
@@ -65,16 +67,14 @@ export function Chat({
   const [usage, setUsage] = useState<AppUsage | undefined>(initialLastContext);
   const [currentModelId, setCurrentModelId] = useState(initialChatModel);
   const currentModelIdRef = useRef(currentModelId);
-
-  const [selectedNamespaceId, setSelectedNamespaceId] = useState<
-    string | undefined
-  >(undefined);
-  const currentNamespaceIdRef = useRef<string | undefined>(undefined);
-
   useEffect(() => {
     currentModelIdRef.current = currentModelId;
   }, [currentModelId]);
 
+  const [selectedNamespaceId, setSelectedNamespaceId] = useState<
+    string | undefined
+  >(initialNamespaceId);
+  const currentNamespaceIdRef = useRef<string | undefined>(initialNamespaceId);
   useEffect(() => {
     currentNamespaceIdRef.current = selectedNamespaceId;
   }, [selectedNamespaceId]);
@@ -166,6 +166,8 @@ export function Chat({
           selectedVisibilityType={initialVisibilityType}
           isReadonly={isReadonly}
           session={session}
+          initNamespaceId={initialNamespaceId}
+          setSelectedNamespaceIdAction={setSelectedNamespaceId}
         />
         <Messages
           chatId={id}
